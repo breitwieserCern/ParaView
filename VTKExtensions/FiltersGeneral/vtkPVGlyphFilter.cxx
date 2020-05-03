@@ -833,9 +833,6 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
 
   vtkDebugMacro(<< "Generating glyphs");
 
-  auto pts = vtkSmartPointer<vtkIdList>::New();
-  pts->Allocate(VTK_CELL_SIZE);
-
   unsigned char* inGhostLevels = nullptr;
   vtkDataArray* temp = nullptr;
   auto pd = input->GetPointData();
@@ -883,8 +880,8 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   }
 
   auto sourcePts = source->GetPoints();
-  vtkIdType numSourcePts = sourcePts->GetNumberOfPoints();
-  vtkIdType numSourceCells = source->GetNumberOfCells();
+  const vtkIdType numSourcePts = sourcePts->GetNumberOfPoints();
+  const vtkIdType numSourceCells = source->GetNumberOfCells();
 
   vtkDataArray* sourceNormals = source->GetPointData()->GetNormals();
 
@@ -937,21 +934,22 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
 
   // Traverse all Input points, transforming Source points and copying
   // point attributes.
-  auto trans = vtkSmartPointer<vtkTransform>::New();
   vtkNew<vtkIdList> pointIdList;
-  vtkIdType ptIncr = 0;
-  vtkIdType cellIncr = 0;
+  std::cout << "  numPts " << numPts << std::endl;
+  std::cout << "  VTK_CELL_SIZE " << VTK_CELL_SIZE << std::endl;
+
   for (vtkIdType inPtId = 0; inPtId < numPts; inPtId++)
   {
     double scalex(1.0), scaley(1.0), scalez(1.0);
-    if (!(inPtId % 10000))
-    {
-      this->UpdateProgress(static_cast<double>(inPtId) / numPts);
-      if (this->GetAbortExecute())
-      {
-        break;
-      }
-    }
+    // TODO
+    // if (!(inPtId % 10000))
+    // {
+    //   this->UpdateProgress(static_cast<double>(inPtId) / numPts);
+    //   if (this->GetAbortExecute())
+    //   {
+    //     break;
+    //   }
+    // }
 
     // Get the scalar and vector data
     if (scaleArray)
@@ -1022,9 +1020,13 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
     }
 
     // Now begin copying/transforming glyph
+    auto trans = vtkSmartPointer<vtkTransform>::New();
     trans->Identity();
 
     // Copy all topology (transformation independent)
+    auto pts = vtkSmartPointer<vtkIdList>::New();
+    pts->Allocate(VTK_CELL_SIZE);
+
     for (vtkIdType cellId = 0; cellId < numSourceCells; cellId++)
     {
       source->GetCellPoints(cellId, pointIdList);
@@ -1032,7 +1034,7 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
       pts->Reset();
       for (vtkIdType i = 0; i < npts; i++)
       {
-        pts->InsertId(i, pointIdList->GetId(i) + ptIncr);
+        pts->InsertId(i, pointIdList->GetId(i) + inPtId * numSourcePts);
       }
       output->InsertNextCell(source->GetCellType(cellId), pts);
     }
@@ -1088,13 +1090,15 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
     {
       transformedSourcePts->Reset();
       this->SourceTransform->TransformPoints(sourcePts, transformedSourcePts);
+      std::cout << "   transformedSourcePts " << transformedSourcePts->GetNumberOfPoints() << "  newPts " << newPts->GetNumberOfPoints() << std::endl;
       trans->TransformPoints(transformedSourcePts, newPts);
     }
     else
     {
+      std::cout << "   sourcePts " << sourcePts->GetNumberOfPoints() << "  newPts " << newPts->GetNumberOfPoints() << std::endl;
       trans->TransformPoints(sourcePts, newPts);
     }
-
+    
     if (newNormals.GetPointer())
     {
       trans->TransformNormals(sourceNormals, newNormals);
@@ -1106,13 +1110,10 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
       for (vtkIdType i = 0; i < numSourcePts; ++i)
       {
         srcPointIdList->SetId(i, inPtId);
-        dstPointIdList->SetId(i, ptIncr + i);
+        dstPointIdList->SetId(i, inPtId * numSourcePts + i);
       }
       outputPD->CopyData(pd, srcPointIdList, dstPointIdList);
     }
-
-    ptIncr += numSourcePts;
-    cellIncr += numSourceCells;
   }
 
   if (newNormals.GetPointer())
