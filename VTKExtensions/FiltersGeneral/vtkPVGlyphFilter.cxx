@@ -926,7 +926,9 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   }
 
   // Setting up for calls to PolyData::InsertNextCell()
-  output->Allocate(source, 3 * numPts * numSourceCells, numPts * numSourceCells);
+  // TODO
+  // output->Allocate(source, 3 * numPts * numSourceCells, numPts * numSourceCells);
+  output->Resize(numPts * numSourceCells);
 
   vtkSmartPointer<vtkPoints> transformedSourcePts = vtkSmartPointer<vtkPoints>::New();
   transformedSourcePts->SetDataTypeToDouble();
@@ -1027,6 +1029,7 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
     auto pts = vtkSmartPointer<vtkIdList>::New();
     pts->Allocate(VTK_CELL_SIZE);
 
+    auto cellIdOffset = inPtId * numSourceCells;
     for (vtkIdType cellId = 0; cellId < numSourceCells; cellId++)
     {
       source->GetCellPoints(cellId, pointIdList);
@@ -1036,7 +1039,9 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
       {
         pts->InsertId(i, pointIdList->GetId(i) + inPtId * numSourcePts);
       }
-      output->InsertNextCell(source->GetCellType(cellId), pts);
+      // TODO
+      // output->InsertNextCell(source->GetCellType(cellId), pts);
+      output->SetCellAt(cellIdOffset + cellId, source->GetCellType(cellId), pts);
     }
 
     // translate Source to Input point
