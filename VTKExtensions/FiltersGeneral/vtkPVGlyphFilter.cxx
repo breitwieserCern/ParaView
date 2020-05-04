@@ -914,14 +914,14 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
     newPts->SetDataType(VTK_DOUBLE);
   }
 
-  newPts->Allocate(numPts * numSourcePts);
-
+  newPts->SetNumberOfPoints(numPts * numSourcePts);
+  
   vtkSmartPointer<vtkFloatArray> newNormals;
   if (sourceNormals)
   {
     newNormals.TakeReference(vtkFloatArray::New());
     newNormals->SetNumberOfComponents(3);
-    newNormals->Allocate(3 * numPts * numSourcePts);
+    newNormals->SetNumberOfTuples(3 * numPts * numSourcePts);
     newNormals->SetName("Normals");
   }
 
@@ -930,6 +930,7 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   // output->Allocate(source, 3 * numPts * numSourceCells, numPts * numSourceCells);
   output->Resize(numPts * numSourceCells);
 
+  // TODO make thread local variable
   vtkSmartPointer<vtkPoints> transformedSourcePts = vtkSmartPointer<vtkPoints>::New();
   transformedSourcePts->SetDataTypeToDouble();
   transformedSourcePts->Allocate(numSourcePts);
@@ -938,7 +939,6 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   // point attributes.
   vtkNew<vtkIdList> pointIdList;
   std::cout << "  numPts " << numPts << std::endl;
-  std::cout << "  VTK_CELL_SIZE " << VTK_CELL_SIZE << std::endl;
 
   for (vtkIdType inPtId = 0; inPtId < numPts; inPtId++)
   {
@@ -1095,18 +1095,16 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
     {
       transformedSourcePts->Reset();
       this->SourceTransform->TransformPoints(sourcePts, transformedSourcePts);
-      std::cout << "   transformedSourcePts " << transformedSourcePts->GetNumberOfPoints() << "  newPts " << newPts->GetNumberOfPoints() << std::endl;
-      trans->TransformPoints(transformedSourcePts, newPts);
+      trans->TransformPoints(transformedSourcePts, newPts, inPtId * numSourcePts);
     }
     else
     {
-      std::cout << "   sourcePts " << sourcePts->GetNumberOfPoints() << "  newPts " << newPts->GetNumberOfPoints() << std::endl;
-      trans->TransformPoints(sourcePts, newPts);
+      trans->TransformPoints(sourcePts, newPts, inPtId * numSourcePts);
     }
     
     if (newNormals.GetPointer())
     {
-      trans->TransformNormals(sourceNormals, newNormals);
+      trans->TransformNormals(sourceNormals, newNormals, inPtId * numSourcePts);
     }
 
     // Copy point data from source (if possible)
