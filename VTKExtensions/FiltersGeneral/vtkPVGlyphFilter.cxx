@@ -887,7 +887,8 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
 
   // Prepare to copy output.
   pd = input->GetPointData();
-  outputPD->CopyAllocate(pd, numPts * numSourcePts);
+  // outputPD->CopyAllocate(pd, numPts * numSourcePts);
+  outputPD->CopyResize(pd, numPts * numSourcePts);
 
   vtkNew<vtkIdList> srcPointIdList;
   srcPointIdList->SetNumberOfIds(numSourcePts);
@@ -1115,7 +1116,7 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
         srcPointIdList->SetId(i, inPtId);
         dstPointIdList->SetId(i, inPtId * numSourcePts + i);
       }
-      outputPD->CopyData(pd, srcPointIdList, dstPointIdList);
+      outputPD->CopyData1(pd, srcPointIdList, dstPointIdList);
     }
   }
 
@@ -1126,6 +1127,16 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
 
   // In certain cases, we can have a left over processing array, remove it.
   outputPD->RemoveArray(IDS_ARRAY_NAME.c_str());
+
+  // for (int i = 0; i < outputPD->GetNumberOfArrays(); ++i) {
+  //   auto* a = outputPD->GetAbstractArray(i);
+  //   std::cout << a->GetDataTypeAsString() << std::endl;
+  //   a->PrintSelf(std::cout, vtkIndent(10));
+  //   auto* da = vtkFloatArray::SafeDownCast(a);
+  //   for (int j = 0; j < a->GetNumberOfValues(); ++j) {
+  //     std::cout << "  " << da->GetValue(j);
+  //   }
+  // }
 
   // Update ourselves and release memory
   //
