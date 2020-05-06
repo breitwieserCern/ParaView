@@ -861,7 +861,7 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   outputPD->CopyVectorsOff();
   outputPD->CopyNormalsOff();
   outputPD->CopyTCoordsOff();
-
+  
   vtkSmartPointer<vtkPolyData> source = this->GetSource(0, sourceVector);
   if (source == nullptr)
   {
@@ -879,25 +879,10 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
     source = defaultSource;
   }
 
+  vtkDataArray* sourceNormals = source->GetPointData()->GetNormals();
   auto sourcePts = source->GetPoints();
   const vtkIdType numSourcePts = sourcePts->GetNumberOfPoints();
   const vtkIdType numSourceCells = source->GetNumberOfCells();
-
-  vtkDataArray* sourceNormals = source->GetPointData()->GetNormals();
-
-  // Prepare to copy output.
-  pd = input->GetPointData();
-  // outputPD->CopyAllocate(pd, numPts * numSourcePts);
-  outputPD->CopyResize(pd, numPts * numSourcePts);
-
-  vtkNew<vtkIdList> srcPointIdList;
-  srcPointIdList->SetNumberOfIds(numSourcePts);
-  vtkNew<vtkIdList> dstPointIdList;
-  dstPointIdList->SetNumberOfIds(numSourcePts);
-  vtkNew<vtkIdList> srcCellIdList;
-  srcCellIdList->SetNumberOfIds(numSourceCells);
-  vtkNew<vtkIdList> dstCellIdList;
-  dstCellIdList->SetNumberOfIds(numSourceCells);
 
   auto newPts = vtkSmartPointer<vtkPoints>::New();
 
@@ -916,6 +901,11 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   }
 
   newPts->SetNumberOfPoints(numPts * numSourcePts);
+
+  // Prepare to copy output.
+  pd = input->GetPointData();
+  // outputPD->CopyAllocate(pd, numPts * numSourcePts);
+  outputPD->CopyResize(pd, numPts * numSourcePts);
   
   vtkSmartPointer<vtkFloatArray> newNormals;
   if (sourceNormals)
@@ -931,6 +921,27 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   // output->Allocate(source, 3 * numPts * numSourceCells, numPts * numSourceCells);
   output->Resize(numPts * numSourceCells);
 
+  if (source->NeedToBuildCells()) {
+    source->BuildCells();
+  }
+
+  if (this->SourceTransform)
+  {
+    this->SourceTransform->Update();
+  }
+
+#pragma omp parallel
+  {
+
+  vtkNew<vtkIdList> srcPointIdList;
+  srcPointIdList->SetNumberOfIds(numSourcePts);
+  vtkNew<vtkIdList> dstPointIdList;
+  dstPointIdList->SetNumberOfIds(numSourcePts);
+  vtkNew<vtkIdList> srcCellIdList;
+  srcCellIdList->SetNumberOfIds(numSourceCells);
+  vtkNew<vtkIdList> dstCellIdList;
+  dstCellIdList->SetNumberOfIds(numSourceCells);
+  
   // TODO make thread local variable
   vtkSmartPointer<vtkPoints> transformedSourcePts = vtkSmartPointer<vtkPoints>::New();
   transformedSourcePts->SetDataTypeToDouble();
@@ -939,8 +950,12 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   // Traverse all Input points, transforming Source points and copying
   // point attributes.
   vtkNew<vtkIdList> pointIdList;
-  std::cout << "  numPts " << numPts << std::endl;
 
+  auto trans = vtkSmartPointer<vtkTransform>::New();
+  auto pts = vtkSmartPointer<vtkIdList>::New();
+  pts->Allocate(VTK_CELL_SIZE);
+
+#pragma omp for
   for (vtkIdType inPtId = 0; inPtId < numPts; inPtId++)
   {
     double scalex(1.0), scaley(1.0), scalez(1.0);
@@ -1023,12 +1038,10 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
     }
 
     // Now begin copying/transforming glyph
-    auto trans = vtkSmartPointer<vtkTransform>::New();
     trans->Identity();
 
     // Copy all topology (transformation independent)
-    auto pts = vtkSmartPointer<vtkIdList>::New();
-    pts->Allocate(VTK_CELL_SIZE);
+    pts->Reset();
 
     auto cellIdOffset = inPtId * numSourceCells;
     for (vtkIdType cellId = 0; cellId < numSourceCells; cellId++)
@@ -1095,7 +1108,7 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
     if (this->SourceTransform)
     {
       transformedSourcePts->Reset();
-      this->SourceTransform->TransformPoints(sourcePts, transformedSourcePts);
+      this->SourceTransform->TransformPointsWoUpdate(sourcePts, transformedSourcePts);
       trans->TransformPoints(transformedSourcePts, newPts, inPtId * numSourcePts);
     }
     else
@@ -1119,7 +1132,7 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
       outputPD->CopyData1(pd, srcPointIdList, dstPointIdList);
     }
   }
-
+  }
   if (newNormals.GetPointer())
   {
     outputPD->SetNormals(newNormals);
