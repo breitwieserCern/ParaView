@@ -912,7 +912,7 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   {
     newNormals.TakeReference(vtkFloatArray::New());
     newNormals->SetNumberOfComponents(3);
-    newNormals->SetNumberOfTuples(3 * numPts * numSourcePts);
+    newNormals->SetNumberOfTuples(numPts * numSourcePts);
     newNormals->SetName("Normals");
   }
 
