@@ -1590,6 +1590,7 @@ void vtkPVGeometryFilter::PolyDataExecute(
         vtkIdType numTup = output->GetNumberOfCells();
         originalCellIds->SetNumberOfValues(numTup);
         originalFaceIds->SetNumberOfValues(numTup);
+#pragma omp parallel for
         for (vtkIdType cId = 0; cId < numTup; cId++)
         {
           originalCellIds->SetValue(cId, cId);
@@ -1605,6 +1606,7 @@ void vtkPVGeometryFilter::PolyDataExecute(
         outputPD->AddArray(originalPointIds.Get());
         vtkIdType numTup = output->GetNumberOfPoints();
         originalPointIds->SetNumberOfValues(numTup);
+#pragma omp parallel for
         for (vtkIdType pId = 0; pId < numTup; pId++)
         {
           originalPointIds->SetValue(pId, pId);
