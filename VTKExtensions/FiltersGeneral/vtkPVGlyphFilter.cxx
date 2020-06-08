@@ -955,7 +955,7 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
   auto pts = vtkSmartPointer<vtkIdList>::New();
   pts->Allocate(VTK_CELL_SIZE);
 
-#pragma omp for
+#pragma omp for schedule(dynamic, 100)
   for (vtkIdType inPtId = 0; inPtId < numPts; inPtId++)
   {
     double scalex(1.0), scaley(1.0), scalez(1.0);
