@@ -44,6 +44,7 @@
 #include "vtkUniformGrid.h"
 #include "vtkUnsignedCharArray.h"
 #include "vtkUnstructuredGrid.h"
+#include "vtkCommand.h"
 
 // C/C++ includes
 #include <algorithm>
@@ -824,6 +825,9 @@ bool vtkPVGlyphFilter::Execute(unsigned int index, vtkDataSet* input,
     return false;
   }
 #endif
+
+  // FIXME tmp solution. Reset kIndex between two iterations.
+  vtkCommand::kOpenGLCacheIndex = 0;
 
   if (orientArray && orientArray->GetNumberOfComponents() > 3)
   {
